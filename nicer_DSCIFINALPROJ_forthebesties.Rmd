@@ -1,0 +1,169 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+##Have you ever wondered, "What is Sammus working on when she says 'I gotta go work on my plots'? Why are all the files impossible to see? What is she doing over there in Chicago?"
+#Scientists have searched high and low for the answer.... and finally, after years of study, have concluded: This. These are some nice plots made by me, Sammus, for my final project. Please enjoy them. I had to learn how to make them into a pdf for you to see this. Or maybe I uploaded the html file to my website. It is unclear to me right now because I am still working on this
+
+
+```{r}
+library(tidyverse)
+library(plotly) #this imports some of the functions I used!
+```
+```{r}
+goodreads <- read.csv("C:\\Users\\Samantha\\Desktop\\DSCI 101\\archive\\books.csv")
+goodreads #here you can see them in the order they were added
+```
+
+
+
+The Goodreads dataset was added to Kaggle in May 25, 2019 as a way of interacting with data gained from the Goodreads API. As Goodreads ceased in offering this data on December 8th, 2020, this dataset contains no information on books added beyond that date.
+The dataset contains information on the date that books were published, the publisher name, title, author(s), language, isbn codes, number of pages, number of text reviews, number of ratings, and average rating from Goodreads users. 
+
+```{r}
+byyear <- goodreads %>% mutate(year = format(as.Date(publication_date, "%m/%d/%Y"), format = "%Y"))
+byyear_ <- byyear %>% group_by(year) %>% summarise(booksnumber = n()) %>% filter(na.rm = TRUE)
+
+
+plot_byyear3 <- ggplot(data = byyear_, aes(x = year, y = booksnumber)) + 
+  geom_bar(stat = "identity", fill = "blue4") +
+  ggtitle("Figure 1: Books Added To Goodreads Per Year", 
+          subtitle = "Goodreads was founded December 2006") +
+  xlab("Year Since 1900") +
+  ylab("Number of Books") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6), 
+        plot.subtitle = element_text(color = "grey", face = "italic"))
+
+plot_byyear3
+```
+When perusing the books stored in Goodreads, it's easy to feel like there is an even spread of new releases and established titles. However, the actual catalogue of books reviewable on Goodreads includes many more of the books that were in recent memory when the site was founded. The curve of books added to Goodreads is exponential towards the year of its founding, but is more than halved during the first year of the site's existence. Though the dates that the books were actually added to Goodreads is not stored, it is likely that most of their catalogue was added before the site launched. This plot can be hovered over to see the exact number of books per year.
+
+```{r}
+reviewratio  <- goodreads %>% 
+  mutate(average_rating = as.numeric(average_rating)) %>% 
+  filter(text_reviews_count > 20, ratings_count > 20, rm.na = TRUE) %>% 
+  mutate(ratings_reviews = (text_reviews_count / ratings_count)) #ratio of reviews: ratings
+
+ggplot(aes(x = ratings_reviews, y = average_rating, color = text_reviews_count), data = reviewratio) + 
+  geom_point() + 
+  scale_color_gradient(low = "lightblue", high = "black") +
+  ggtitle("Figure 2: Book Ratings On Goodreads", 
+          subtitle = "Are users most likely to write reviews for books they enjoyed?") +
+  xlab("Ratings to Text Reviews Ratio") +
+  ylab("Rating (in stars out of 5)") +
+  labs(color = "Number of Text Reviews") +
+  theme(plot.subtitle = element_text(color = "grey", face = "italic"))
+```
+
+The top ten books for the largest ratio of text reviews to star ratings are obscure, with less than two reviews and ratings each. They are also mostly in different languages, notable because most of Goodreads's books are in English. The top ten for the smallest ratio of text reviews to star ratings are several Wrinkle In Time reprints, with around ~15 ratings and 0 reviews each. To remove these results, I dropped all entries with a number of ratings or reviews below 20.
+It was expected that the books with the highest number of text reviews would be those that are rated either very high or very low, as people enjoy talking about things they love and things they hate. However, we can see in figure 1 that the books that are actually most likely to have more reviews are those that are not rated very much at all. 
+The very visible black dot with a rating of 3.59 and a ratings to reviews ratio of 0.02 is the first book in the Twilight series. Its large number of text reviews are still smaller than its number of ratings. The higher-rated black dot is The Book Thief and the greyer dots are The Giver by Lois Lowry, Paulo Coelo's The Alchemist, Water for Elephants, the first Percy Jackson book, Eat Pray Love, The Glass Castle, The Catcher in the Rye, and the third Harry Potter book. These books inspire many people to talk about them, but inspire even more people to only rate them.
+
+```{r}
+reviewratio %>% arrange(-text_reviews_count) #Fig 2a, the table of books with the highest number of text reviews
+```
+
+Note that Twilight's first book was the 41,865th book to be added to Goodreads. Note that people usually leave text reviews for the first book of a series, but not in HP#3's case. Possibly they are posting excited gifsets (a time-honored Goodreads tradition) for Sirius Black. Note also that Percy Jackson is here! Some of these books are very impactful and the reviews may contain people talking about their experiences with the book. Note also that I am scared to see what are in the Goodreads reviews of Twilight.
+
+
+```{r}
+prolific_pub <- byyear %>% 
+  mutate(average_rating = as.numeric(average_rating)) %>% 
+  filter(rm.na = TRUE) %>% 
+  group_by(publisher) %>% 
+  summarise(num = n(), avg_book_rating = mean(average_rating)) %>% 
+  arrange(-num) %>%
+  head(20)
+  
+
+prolificplot <- ggplot(aes(x = num, y = publisher, fill = avg_book_rating), data = prolific_pub) + 
+  geom_bar(stat="identity") +
+  ggtitle("Figure 3: Books Per Publisher", 
+          subtitle = "Hover to see average book rating across publishing company") +
+  xlab("Books Per Publisher") +
+  ylab("Publisher Names") +
+  theme(plot.subtitle = element_text(color = "grey", face = "italic"))
+
+
+ggplotly(prolificplot)
+```
+
+By far, the single publisher with the most books on Goodreads is Vintage. Vintage Books was established in 1954 and published "Guns Germs and Steel" and Paulo Coehlo's works. This may be because of other publishing houses splitting the books they publish under different names, such as Oxford University Press and Oxford University Press USA, or HarperCollins and Harper Perennial. It is not actually an independent publisher, though, and is actually an imprint of Penguin Random House. 
+This plot can be hovered over to see the actual average book rating per publisher.
+
+```{r}
+well_rated <- goodreads %>% 
+  mutate(average_rating = as.numeric(average_rating)) %>% 
+  filter(rm.na = TRUE) %>% #, text_reviews_count > 10 when I drop these, Steven King only has 35 books (instead of 65)
+  group_by(authors) %>% 
+  summarise(avg_rating = mean(average_rating), number_of_books = n()) %>% 
+  arrange(-number_of_books)
+
+ratedauthors <- ggplot(aes(x = avg_rating, y = number_of_books, text = authors), data = well_rated) + 
+  geom_point(name = 'authors') +
+    ggtitle("Figure 4: Book Quantity Versus Quality", 
+          subtitle = "Hover to see author name") +
+  xlab("Average Rating of an Author's Body of Work") +
+  ylab("Number of Books") +
+  theme(plot.subtitle = element_text(color = "grey", face = "italic"))
+
+ggplotly(ratedauthors)
+```
+
+Sometimes, quantity outshines quality. Sometimes, authors publish show-stopping work after show-stopping work.
+This plot can be hovered over to see which author had which rating and number of books.
+
+
+```{r}
+pagerating <- goodreads %>% 
+  mutate(average_rating = as.numeric(average_rating)) %>% 
+  filter(rm.na = TRUE) %>% 
+  group_by(num_pages) %>% 
+  summarise(avg_rating = mean(average_rating)) %>% 
+  arrange(-avg_rating)
+
+page_rated <- ggplot(aes(y = avg_rating, x = num_pages, text = 'title'), data = pagerating) + 
+    geom_point(name = 'title') +
+    ggtitle("Figure 5: Book Quantity Versus Quality, Pages", subtitle = "Does being too wordy drag down a work?") + 
+  xlab("Number of Pages") +
+  ylab("Average Rating") +
+  theme(plot.subtitle = element_text(color = "grey", face = "italic"))
+
+page_rated
+```
+
+The same as the above but for page number rather than book amount! This plot can be hovered over to see the book represented by each point.
+
+# Okay now here are some things extra just for you guys
+
+These are the Goodreads books arranged in order of duplicates. There are 9 pages on Goodreads for different versions of The Brothers Karamazov, without the translations having different titles.
+```{r}
+booktitles <- goodreads %>% group_by(title) %>% 
+  summarise(num = n()) 
+booktitles %>% arrange(-num)
+```
+
+
+```{r}
+reviewratio %>% arrange(-ratings_reviews) #bonus table A, books with the most reviews relative to ratings
+reviewratio %>% arrange(-average_rating) #bonus table B, books with the highest ratings. 
+```
+Please note how Calvin and Hobbes top the list of most highly-rated books on Goodreads many times. As Lemon Demon would say, Bill Waterson can't you hear me. Bill Waterson why do you fea
+
+```{r}
+w_r <- well_rated %>% filter(number_of_books > 5)
+w_r %>% arrange(-avg_rating) #bonus table C, Hiromu Arakawa rules all.
+```
+I am not certain why Rick Riordan isn't showing up under most highly-rated authors. I must have done something different this time, because the other translators for Hiromu Arakawa aren't showing up here either! (It's not figure 2a I was thinking of, either, as that one does not mention Arakawa.) However, I would like to point out that there are still 2 slots in the top 5 for Arakawa so we stay winning. Also Hirohiko Araki, the mangaka of Jojo's Bizarre Adventure is also here. He is not his own translator, so he might be listed as Author/Illustrator like how JK Rowling and Mary GrandPre are here. cannot believe they are higher than Tolkien. eventhough goodreads is the 'aged out of being a potterhead' website. they should like Tolkien more there. weeps so gently.
+
+```{r}
+reviewratio %>% arrange(-ratings_reviews) #bonus table D, books with the most reviews
+```
+
+
+
+
+
